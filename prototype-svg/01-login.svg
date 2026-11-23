@@ -1,0 +1,56 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">Hospitality POS login</title>
+  <desc id="description">Login artboard with hospitality operations introduction and practice account sign-in.</desc>
+  <defs>
+    <linearGradient id="brand" x2="1" y2="1"><stop stop-color="#172a32"/><stop offset="1" stop-color="#10171e"/></linearGradient>
+    <linearGradient id="green" x2="1" y2="1"><stop stop-color="#63d6b1"/><stop offset="1" stop-color="#32bc94"/></linearGradient>
+    <style>
+      text{font-family:'DM Sans','Segoe UI',sans-serif}.muted{fill:#4f5f70}.subtle{fill:#586675}.white{fill:#e7edf5}.mint{fill:#63d6b1}.small{font-size:13px}.tiny{font-size:11px}
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="#f3f6f8"/>
+  <rect width="700" height="900" fill="url(#brand)"/>
+  <circle cx="34" cy="790" r="290" fill="#27866c" opacity=".10"/>
+  <rect x="76" y="52" width="50" height="50" rx="15" fill="url(#green)"/>
+  <path d="M92 68h5l4 4 4-4h5v19h-5V76l-4 4-4-4v11h-5z" fill="#071711"/>
+  <text x="142" y="75" class="white" font-size="18" font-weight="800">Hospitality POS</text>
+  <text x="142" y="96" fill="#a9b6c5" font-size="12">Restaurant &amp; Hotel Operations</text>
+  <rect x="76" y="236" width="225" height="32" rx="16" fill="#63d6b1" fill-opacity=".09" stroke="#63d6b1" stroke-opacity=".28"/>
+  <circle cx="94" cy="252" r="4" fill="#63d6b1"/>
+  <text x="106" y="256" class="mint tiny" font-weight="700">HOSPITALITY POS TRAINING</text>
+  <text x="76" y="333" class="white" font-size="43" font-weight="800" letter-spacing="-1.2">Practice hotel and</text>
+  <text x="76" y="385" class="white" font-size="43" font-weight="800" letter-spacing="-1.2">restaurant operations in</text>
+  <text x="76" y="437" class="white" font-size="43" font-weight="800" letter-spacing="-1.2">one POS workspace.</text>
+  <text x="78" y="480" fill="#a9b6c5" font-size="16">A hands-on learning environment for everyday hospitality work.</text>
+  <g transform="translate(78 548)">
+    <circle cx="17" cy="17" r="17" fill="#63d6b1" fill-opacity=".13"/><path d="M11 17l4 4 8-9" fill="none" stroke="#63d6b1" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="48" y="15" class="white" font-size="14" font-weight="700">Role-based practice</text><text x="48" y="35" fill="#a9b6c5" font-size="12">Eight roles for common hospitality responsibilities.</text>
+  </g>
+  <g transform="translate(78 612)">
+    <circle cx="17" cy="17" r="17" fill="#63d6b1" fill-opacity=".13"/><path d="M11 13h12v10H11zM14 10h6v3" fill="none" stroke="#63d6b1" stroke-width="2"/>
+    <text x="48" y="15" class="white" font-size="14" font-weight="700">Live order flow</text><text x="48" y="35" fill="#a9b6c5" font-size="12">Follow table orders from waiter entry to kitchen completion.</text>
+  </g>
+  <g transform="translate(78 676)">
+    <circle cx="17" cy="17" r="17" fill="#63d6b1" fill-opacity=".13"/><path d="M10 15l7-6 7 6v10H10zM14 25v-7h6v7" fill="none" stroke="#63d6b1" stroke-width="2"/>
+    <text x="48" y="15" class="white" font-size="14" font-weight="700">Rooms &amp; stock control</text><text x="48" y="35" fill="#a9b6c5" font-size="12">Practice housekeeping, inventory and accountant approvals.</text>
+  </g>
+  <text x="78" y="842" fill="#91a0b2" font-size="11">Educational workspace Â· Practice data stays in this browser</text>
+  <text x="822" y="227" font-size="27" font-weight="800">Welcome back</text>
+  <text x="822" y="254" class="muted" font-size="14">Sign in to continue practicing hotel and restaurant operations.</text>
+  <text x="822" y="319" font-size="13" font-weight="700">Username</text>
+  <rect x="822" y="331" width="520" height="50" rx="9" fill="#fff" stroke="#dce4e9"/>
+  <text x="842" y="361" class="subtle small">Enter your username</text>
+  <text x="822" y="414" font-size="13" font-weight="700">Password</text>
+  <rect x="822" y="426" width="520" height="50" rx="9" fill="#fff" stroke="#dce4e9"/>
+  <text x="842" y="456" class="subtle small">Enter your password</text>
+  <rect x="822" y="508" width="520" height="50" rx="9" fill="#087957"/>
+  <text x="1082" y="539" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">Sign in</text>
+  <text x="822" y="611" class="muted small">PRACTICE ACCOUNTS</text>
+  <g font-size="12">
+    <rect x="822" y="628" width="250" height="62" rx="9" fill="#fff" stroke="#dce4e9"/><text x="840" y="653" font-weight="700">Waiter</text><text x="840" y="675" class="muted tiny">Enter table orders</text>
+    <rect x="1082" y="628" width="260" height="62" rx="9" fill="#fff" stroke="#dce4e9"/><text x="1100" y="653" font-weight="700">Accountant</text><text x="1100" y="675" class="muted tiny">Approve requests &amp; payments</text>
+    <rect x="822" y="702" width="250" height="62" rx="9" fill="#fff" stroke="#dce4e9"/><text x="840" y="727" font-weight="700">Food Storekeeper</text><text x="840" y="749" class="muted tiny">Manage food stock</text>
+    <rect x="1082" y="702" width="260" height="62" rx="9" fill="#fff" stroke="#dce4e9"/><text x="1100" y="727" font-weight="700">Beverage Storekeeper</text><text x="1100" y="749" class="muted tiny">Manage beverage stock</text>
+  </g>
+  <text x="822" y="817" class="subtle tiny">Frontend training build Â· No backend connected</text>
+</svg>
