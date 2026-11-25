@@ -1,11 +1,31 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_DATA, MENU_ITEMS } from '../data/constants';
+import { DEFAULT_DATA, MENU_ITEMS, PAYMENT_METHODS, ROOM_NIGHTLY_RATES } from '../data/constants';
 import { canManageInventoryCategory } from '../utils/inventoryAccess';
 
 const DataContext = createContext(null);
 const STORAGE_KEY = 'aurora-pos-data';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+
+function normalizeOrders(orders, menuItems = MENU_ITEMS) {
+  return orders.map((order) => {
+    const items = (order.items || []).map((item) => {
+      const menuItem = menuItems.find((entry) => entry.id === item.id);
+      return {
+        ...item,
+        category: item.category || menuItem?.category || (item.id.startsWith('d') ? 'Drinks' : 'Food'),
+      };
+    });
+    const hasBeverages = items.some((item) => item.category === 'Drinks');
+    return {
+      ...order,
+      items,
+      ...(hasBeverages && !order.beverageStatus
+        ? { beverageStatus: order.status === 'completed' ? 'approved' : 'pending' }
+        : {}),
+    };
+  });
+}
 
 function loadData() {
   try {
@@ -23,32 +43,25 @@ function loadData() {
       const beverageStorekeeper = DEFAULT_DATA.users.find(
         (account) => account.role === 'beverage_storekeeper',
       );
+      const receptionist = DEFAULT_DATA.users.find((account) => account.role === 'receptionist');
       if (!users.some((account) => account.username === beverageStorekeeper.username)) {
         users.push(clone(beverageStorekeeper));
       }
       if (!users.some((account) => account.username === beverageManager.username)) {
         users.push(clone(beverageManager));
       }
+      if (!users.some((account) => account.username === receptionist.username)) {
+        users.push(clone(receptionist));
+      }
       const inventory = parsed.inventory || clone(DEFAULT_DATA.inventory);
+      const menuItems = parsed.menuItems || clone(MENU_ITEMS);
       DEFAULT_DATA.inventory
         .filter((item) => item.category === 'Beverages' && !inventory.some((entry) => entry.id === item.id))
         .forEach((item) => inventory.push(clone(item)));
-      const orders = (parsed.orders || clone(DEFAULT_DATA.orders)).map((order) => {
-        const items = (order.items || []).map((item) => {
-          const menuItem = MENU_ITEMS.find((entry) => entry.id === item.id);
-          return { ...item, category: item.category || menuItem?.category || (item.id.startsWith('d') ? 'Drinks' : 'Food') };
-        });
-        const hasBeverages = items.some((item) => item.category === 'Drinks');
-        return {
-          ...order,
-          items,
-          ...(hasBeverages && !order.beverageStatus
-            ? { beverageStatus: order.status === 'completed' ? 'approved' : 'pending' }
-            : {}),
-        };
-      });
+      const orders = normalizeOrders(parsed.orders || clone(DEFAULT_DATA.orders), menuItems);
       return {
         orders,
+        menuItems,
         rooms: parsed.rooms || clone(DEFAULT_DATA.rooms),
         inventory,
         tables: parsed.tables || clone(DEFAULT_DATA.tables),
@@ -56,12 +69,16 @@ function loadData() {
         stockRequests: parsed.stockRequests || [],
         inventoryMovements: parsed.inventoryMovements || [],
         activity: parsed.activity || [],
+        roomBookings: parsed.roomBookings || [],
       };
     }
   } catch {
     /* ignore corrupted storage */
   }
-  return clone(DEFAULT_DATA);
+  return {
+    ...clone(DEFAULT_DATA),
+    orders: normalizeOrders(clone(DEFAULT_DATA.orders), DEFAULT_DATA.menuItems),
+  };
 }
 
 export function DataProvider({ children }) {
@@ -74,6 +91,16 @@ export function DataProvider({ children }) {
       /* ignore quota errors */
     }
   }, [data]);
+
+  useEffect(() => {
+    const syncStoredData = (event) => {
+      if (event.key === STORAGE_KEY || event.key === null) {
+        setData(loadData());
+      }
+    };
+    window.addEventListener('storage', syncStoredData);
+    return () => window.removeEventListener('storage', syncStoredData);
+  }, []);
 
   const value = useMemo(() => {
     const addOrder = (order) =>
@@ -92,7 +119,7 @@ export function DataProvider({ children }) {
         };
         const orderItems = newOrder.items.map((item) => ({
           ...item,
-          category: item.category || MENU_ITEMS.find((entry) => entry.id === item.id)?.category,
+          category: item.category || current.menuItems.find((entry) => entry.id === item.id)?.category,
         }));
         const createdAt = new Date().toISOString();
         const hasBeverages = orderItems.some((item) => item.category === 'Drinks');
@@ -140,7 +167,12 @@ export function DataProvider({ children }) {
         };
       });
 
-    const setOrderPayment = (id, payment, actor = 'System') =>
+    const setOrderPayment = (id, payment, actor = 'System') => {
+      const order = data.orders.find((entry) => entry.id === id);
+      if (!order) return { success: false, error: 'This order no longer exists.' };
+      if (payment === 'paid' && order.status !== 'completed') {
+        return { success: false, error: 'The order must be completed before payment can be approved.' };
+      }
       setData((current) => ({
         ...current,
         orders: current.orders.map((order) =>
@@ -154,6 +186,144 @@ export function DataProvider({ children }) {
           createdAt: new Date().toISOString(),
         }, ...current.activity],
       }));
+      return { success: true };
+    };
+
+    const createRoomBooking = (booking, actor, role) => {
+      if (!['receptionist', 'manager', 'admin'].includes(role)) {
+        return { success: false, error: 'Only reception or an authorized manager can create room bookings.' };
+      }
+      const guestName = String(booking.guestName || '').trim();
+      const secondGuestName = String(booking.secondGuestName || '').trim();
+      const phone = String(booking.phone || '').trim();
+      const room = data.rooms.find((entry) => entry.id === booking.roomId);
+      if (!guestName || !phone || (booking.guestType === 'couple' && !secondGuestName)) {
+        return { success: false, error: 'Enter the guest name, phone number and both guest names for a couple booking.' };
+      }
+      if (!['single', 'couple'].includes(booking.guestType)) {
+        return { success: false, error: 'Choose whether the booking is for one guest or a couple.' };
+      }
+      if (!room || room.status !== 'clean') {
+        return { success: false, error: 'Choose a room that is currently clean and ready.' };
+      }
+      const checkInTime = Date.parse(booking.checkIn);
+      const checkOutTime = Date.parse(booking.checkOut);
+      if (!Number.isFinite(checkInTime) || checkInTime <= Date.now()) {
+        return { success: false, error: 'Check-in must be scheduled for a future date and time.' };
+      }
+      if (!Number.isFinite(checkOutTime) || checkOutTime <= checkInTime) {
+        return { success: false, error: 'Check-out must be later than check-in.' };
+      }
+      const checkInDate = new Date(booking.checkIn);
+      const checkOutDate = new Date(booking.checkOut);
+      const checkInDay = Date.UTC(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+      const checkOutDay = Date.UTC(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+      const nights = Math.round((checkOutDay - checkInDay) / 86400000);
+      if (nights < 1) {
+        return { success: false, error: 'A room booking must include at least one night.' };
+      }
+      const hasConflict = data.roomBookings.some((entry) => {
+        if (entry.roomId !== room.id || entry.status === 'cancelled') return false;
+        const existingStart = Date.parse(entry.checkIn);
+        const existingEnd = Date.parse(entry.checkOut);
+        return checkInTime < existingEnd && existingStart < checkOutTime;
+      });
+      if (hasConflict) {
+        return { success: false, error: 'This room is already booked for part of the selected stay.' };
+      }
+      const nightlyRate = room.nightlyRate ?? ROOM_NIGHTLY_RATES[room.type];
+      if (!Number.isFinite(nightlyRate) || nightlyRate <= 0 || booking.nightlyRate !== nightlyRate) {
+        return { success: false, error: 'The selected room rate is not valid.' };
+      }
+      const createdAt = new Date().toISOString();
+      const record = {
+        id: `RB-${Date.now()}`,
+        guestType: booking.guestType,
+        guestName,
+        secondGuestName: booking.guestType === 'couple' ? secondGuestName : '',
+        phone,
+        roomId: room.id,
+        roomType: room.type,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        nightlyRate,
+        nights,
+        total: nights * nightlyRate,
+        payment: 'unpaid',
+        status: 'booked',
+        createdAt,
+        createdBy: actor || 'Reception',
+      };
+      setData((current) => ({
+        ...current,
+        roomBookings: [record, ...current.roomBookings],
+        activity: [{
+          id: `act-${Date.now()}`,
+          actor: actor || 'Reception',
+          type: 'room-booking-created',
+          details: `Booked Room ${room.id} for ${guestName} (${nights} night${nights === 1 ? '' : 's'})`,
+          createdAt,
+        }, ...current.activity],
+      }));
+      return { success: true, booking: record };
+    };
+
+    const setRoomBookingPayment = (id, payment, actor, role) => {
+      if (role !== 'accountant') {
+        return { success: false, error: 'Only an accountant can approve room booking payment.' };
+      }
+      const booking = data.roomBookings.find((entry) => entry.id === id);
+      if (!booking) return { success: false, error: 'This room booking no longer exists.' };
+      if (payment !== 'paid' || booking.payment !== 'unpaid') {
+        return { success: false, error: 'This booking is not awaiting payment approval.' };
+      }
+      const createdAt = new Date().toISOString();
+      setData((current) => ({
+        ...current,
+        roomBookings: current.roomBookings.map((entry) =>
+          entry.id === id
+            ? { ...entry, payment: 'paid', approvedBy: actor || 'Accountant', approvedAt: createdAt }
+            : entry,
+        ),
+        activity: [{
+          id: `act-${Date.now()}`,
+          actor: actor || 'Accountant',
+          type: 'room-booking-payment-approved',
+          details: `Approved payment for ${booking.id}`,
+          createdAt,
+        }, ...current.activity],
+      }));
+      return { success: true };
+    };
+
+    const setRoomBookingPaymentMethod = (id, paymentMethod, actor, role) => {
+      if (!['receptionist', 'manager', 'admin'].includes(role)) {
+        return { success: false, error: 'Only reception or an authorized manager can choose a receipt payment method.' };
+      }
+      if (!PAYMENT_METHODS.includes(paymentMethod)) {
+        return { success: false, error: 'Choose a valid receipt payment method.' };
+      }
+      const booking = data.roomBookings.find((entry) => entry.id === id);
+      if (!booking) return { success: false, error: 'This room booking no longer exists.' };
+      if (booking.payment === 'paid' && booking.paymentMethod && booking.paymentMethod !== paymentMethod) {
+        return { success: false, error: 'A paid booking receipt cannot change its payment method.' };
+      }
+      const createdAt = new Date().toISOString();
+      setData((current) => ({
+        ...current,
+        roomBookings: current.roomBookings.map((entry) =>
+          entry.id === id ? { ...entry, paymentMethod, paymentMethodSelectedAt: createdAt } : entry,
+        ),
+        activity: [{
+          id: `act-${Date.now()}`,
+          actor: actor || 'Reception',
+          type: 'room-booking-payment-method-selected',
+          details: `Selected ${paymentMethod} for booking ${id}`,
+          createdAt,
+        }, ...current.activity],
+      }));
+      return { success: true };
+    };
 
     const approveBeverageOrder = (id, actor, role) => {
       if (!['bar_manager', 'manager', 'admin'].includes(role)) {
@@ -199,7 +369,7 @@ export function DataProvider({ children }) {
 
       const deductions = new Map();
       for (const orderItem of order.items.filter((item) => item.category === 'Drinks')) {
-        const menuItem = MENU_ITEMS.find((item) => item.id === orderItem.id);
+        const menuItem = data.menuItems.find((item) => item.id === orderItem.id);
         const inventoryItem = data.inventory.find(
           (item) => item.id === menuItem?.inventoryItemId && item.category === 'Beverages',
         );
@@ -271,6 +441,94 @@ export function DataProvider({ children }) {
           table.id === id ? { ...table, status } : table,
         ),
       }));
+
+    const addService = (service, actor, role) => {
+      if (!['admin', 'manager'].includes(role)) {
+        return { success: false, error: 'Only an administrator or manager can add services.' };
+      }
+
+      const createdAt = new Date().toISOString();
+      const responsible = actor || 'Manager';
+      if (service.type === 'Room') {
+        const id = String(service.roomId || '').trim();
+        const type = String(service.roomType || '').trim();
+        const floor = Number(service.floor);
+        const nightlyRate = Number(service.nightlyRate);
+        if (!id || !type || !Number.isInteger(floor) || floor < 1 ||
+          !Number.isFinite(nightlyRate) || nightlyRate <= 0) {
+          return { success: false, error: 'Enter a room number, room type, valid floor and nightly rate.' };
+        }
+        if (data.rooms.some((room) => room.id.toLowerCase() === id.toLowerCase())) {
+          return { success: false, error: 'A room with this number already exists.' };
+        }
+        const room = { id, type, floor, status: 'clean', guest: null, nightlyRate };
+        setData((current) => ({
+          ...current,
+          rooms: [...current.rooms, room],
+          activity: [{
+            id: `act-${Date.now()}`,
+            actor: responsible,
+            type: 'room-added',
+            details: `Added Room ${id} (${type}) at ${nightlyRate} per night`,
+            createdAt,
+          }, ...current.activity],
+        }));
+        return { success: true, service: room };
+      }
+
+      if (!['Food', 'Drinks'].includes(service.type)) {
+        return { success: false, error: 'Choose Food, Drinks or Room as the service type.' };
+      }
+      const name = String(service.name || '').trim();
+      const price = Number(service.price);
+      if (!name || !Number.isFinite(price) || price <= 0) {
+        return { success: false, error: 'Enter a service name and a price greater than zero.' };
+      }
+      if (data.menuItems.some(
+        (item) => item.category === service.type && item.name.trim().toLowerCase() === name.toLowerCase(),
+      )) {
+        return { success: false, error: `A ${service.type.toLowerCase()} service with this name already exists.` };
+      }
+
+      const existingStock = service.type === 'Drinks'
+        ? data.inventory.find((item) =>
+            item.category === 'Beverages' && item.name.trim().toLowerCase() === name.toLowerCase(),
+          )
+        : null;
+      const inventoryItemId = service.type === 'Drinks'
+        ? existingStock?.id || `i${Date.now()}`
+        : undefined;
+      const menuItem = {
+        id: `svc-${Date.now()}-${data.menuItems.length}`,
+        name,
+        category: service.type,
+        price,
+        ...(inventoryItemId ? { inventoryItemId } : {}),
+      };
+      const addedInventory = service.type === 'Drinks' && !existingStock
+        ? [{
+            id: inventoryItemId,
+            name,
+            category: 'Beverages',
+            qty: 0,
+            unit: 'servings',
+            threshold: 0,
+          }]
+        : [];
+      setData((current) => ({
+        ...current,
+        menuItems: [...current.menuItems, menuItem],
+        inventory: [...current.inventory, ...addedInventory],
+        activity: [{
+          id: `act-${Date.now()}`,
+          actor: responsible,
+          type: 'service-added',
+          details: `Added ${service.type === 'Food' ? 'food' : 'beverage'} service ${name} at ${price}`,
+          createdAt,
+        }, ...current.activity],
+      }));
+      return { success: true, service: menuItem };
+    };
 
     const setRoomStatus = (id, status, actor = 'System') =>
       setData((current) => {
@@ -578,6 +836,10 @@ export function DataProvider({ children }) {
       addOrder,
       advanceOrder,
       setOrderPayment,
+      createRoomBooking,
+      setRoomBookingPayment,
+      setRoomBookingPaymentMethod,
+      addService,
       approveBeverageOrder,
       setTableStatus,
       setRoomStatus,

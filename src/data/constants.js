@@ -3,6 +3,7 @@ import {
   ClipboardList,
   ChefHat,
   BedDouble,
+  CalendarCheck,
   Package,
   BarChart3,
   Users,
@@ -22,6 +23,7 @@ export const ROLE_LABELS = {
   bar_manager: 'Bar Manager',
   chef: 'Kitchen Chef',
   housekeeping: 'Housekeeping',
+  receptionist: 'Receptionist',
 };
 
 export const DEMO_USERS = [
@@ -124,6 +126,17 @@ export const DEMO_USERS = [
     active: true,
     color: '#8b5cf6',
   },
+  {
+    id: 'u10',
+    name: 'Beatrice Nyirahabimana',
+    username: 'receptionist',
+    password: 'reception123',
+    role: 'receptionist',
+    email: 'receptionist@example.com',
+    phone: '+250 788 000 010',
+    active: true,
+    color: '#14b8a6',
+  },
 ];
 
 export const ROLE_RESPONSIBILITIES = {
@@ -194,19 +207,42 @@ export const ROLE_RESPONSIBILITIES = {
     'Records housekeeping supplies used.',
     'Communicates room readiness to the reception department.',
   ],
+  receptionist: [
+    'Checks room readiness, availability and nightly rates for requested dates.',
+    'Records guest details and creates reservations with arrival and departure times.',
+    'Prints booking receipts and provides guests with payment instructions.',
+    'Works with the accountant to confirm payment and print final paid receipts.',
+  ],
 };
 
 export const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'waiter', 'accountant', 'food_storekeeper', 'beverage_storekeeper', 'bar_manager', 'chef', 'housekeeping'] },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'waiter', 'accountant', 'food_storekeeper', 'beverage_storekeeper', 'bar_manager', 'chef', 'housekeeping', 'receptionist'] },
   { to: '/orders', label: 'Orders', icon: ClipboardList, roles: ['admin', 'manager', 'waiter', 'accountant'] },
+  { to: '/room-bookings', label: 'Room Bookings', icon: CalendarCheck, roles: ['admin', 'manager', 'accountant', 'receptionist'] },
+  { to: '/services', label: 'Services', icon: ClipboardList, roles: ['admin', 'manager'] },
   { to: '/bar', label: 'Bar Orders', icon: ClipboardList, roles: ['admin', 'manager', 'bar_manager'] },
   { to: '/kitchen', label: 'Kitchen', icon: ChefHat, roles: ['admin', 'manager', 'chef'] },
   { to: '/housekeeping', label: 'Housekeeping', icon: BedDouble, roles: ['admin', 'manager', 'housekeeping'] },
   { to: '/inventory', label: 'Inventory', icon: Package, roles: ['admin', 'manager', 'accountant', 'food_storekeeper', 'beverage_storekeeper'] },
   { to: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'manager', 'accountant'] },
   { to: '/users', label: 'Team', icon: Users, roles: ['admin', 'manager'] },
-  { to: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'waiter', 'accountant', 'food_storekeeper', 'beverage_storekeeper', 'bar_manager', 'chef', 'housekeeping'] },
+  { to: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'waiter', 'accountant', 'food_storekeeper', 'beverage_storekeeper', 'bar_manager', 'chef', 'housekeeping', 'receptionist'] },
 ];
+
+export const ROOM_NIGHTLY_RATES = {
+  Standard: 30000,
+  Deluxe: 45000,
+  Superior: 60000,
+  Suite: 80000,
+};
+
+export const PAYMENT_METHODS = ['MoMo', 'Equity Bank'];
+
+export const RECEIPT_PAYMENT_DETAILS = {
+  mobileMoneyNumber: '+250782263057',
+  mobileMoneyCode: '1643156',
+  equityBankAccount: '4016101201696',
+};
 
 export const MENU_ITEMS = [
   { id: 'f1', name: 'Grilled Chicken', category: 'Food', price: 8500 },
@@ -368,6 +404,7 @@ export const PAYMENT_BREAKDOWN = [
 
 export const DEFAULT_DATA = {
   orders: INITIAL_ORDERS,
+  menuItems: MENU_ITEMS,
   rooms: INITIAL_ROOMS,
   inventory: INITIAL_INVENTORY,
   tables: INITIAL_TABLES,
@@ -375,4 +412,5 @@ export const DEFAULT_DATA = {
   stockRequests: [],
   inventoryMovements: [],
   activity: [],
+  roomBookings: [],
 };

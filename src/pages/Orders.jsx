@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/DataContext';
-import { MENU_ITEMS } from '../data/constants';
+import { RECEIPT_PAYMENT_DETAILS } from '../data/constants';
 import { formatCurrency, formatTime } from '../utils/format';
 import {
   Badge,
@@ -30,21 +30,16 @@ const NEXT_STATUS = {
   preparing: { value: 'ready', label: 'Mark ready' },
   ready: { value: 'completed', label: 'Complete order' },
 };
-const RECEIPT_PAYMENT_DETAILS = {
-  mobileMoneyNumber: '+250782263057',
-  mobileMoneyCode: '1643156',
-  equityBankAccount: '4016101201696',
-};
-
 export default function Orders() {
   const { user } = useAuth();
-  const { orders, tables, addOrder, advanceOrder, setOrderPayment } = useAppData();
+  const { orders, tables, menuItems, addOrder, advanceOrder, setOrderPayment } = useAppData();
 
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [newOpen, setNewOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [printReceiptOrder, setPrintReceiptOrder] = useState(null);
+  const [printedAt, setPrintedAt] = useState(null);
   const [toast, setToast] = useState('');
 
   const [cart, setCart] = useState({});
@@ -55,9 +50,11 @@ export default function Orders() {
   const [formError, setFormError] = useState('');
 
   const canCreate = ['waiter', 'manager', 'admin'].includes(user.role);
-  const canAdvance = ['waiter', 'manager', 'admin'].includes(user.role);
+  const canAdvance = ['manager', 'admin'].includes(user.role);
   const canPrintReceipt = ['waiter', 'manager', 'admin'].includes(user.role);
   const canPay = user.role === 'accountant';
+  const canPrintOrderReceipt = (order) =>
+    canPrintReceipt && (user.role !== 'waiter' || order.waiter === user.name);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -88,23 +85,23 @@ export default function Orders() {
 
   const cartItems = useMemo(
     () =>
-      MENU_ITEMS.filter((item) => cart[item.id]).map((item) => ({
+      menuItems.filter((item) => cart[item.id]).map((item) => ({
         ...item,
         qty: cart[item.id],
       })),
-    [cart],
+    [cart, menuItems],
   );
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const cartCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
   const menuFiltered = useMemo(() => {
     const term = menuSearch.trim().toLowerCase();
-    return MENU_ITEMS.filter(
+    return menuItems.filter(
       (item) =>
         (menuCategory === 'All' || item.category === menuCategory) &&
         (!term || item.name.toLowerCase().includes(term)),
     );
-  }, [menuCategory, menuSearch]);
+  }, [menuCategory, menuSearch, menuItems]);
 
   const counts = useMemo(() => {
     const base = { all: orders.length };
@@ -113,6 +110,9 @@ export default function Orders() {
     });
     return base;
   }, [orders]);
+  const currentDetail = detail
+    ? orders.find((order) => order.id === detail.id) || detail
+    : null;
 
   const openNewOrder = () => {
     setCart({});
@@ -154,10 +154,17 @@ export default function Orders() {
       note: note.trim(),
     });
     setNewOpen(false);
+    const hasFood = cartItems.some((item) => item.category === 'Food');
     const hasBeverages = cartItems.some((item) => item.category === 'Drinks');
-    setToast(hasBeverages
-      ? `Order sent to the kitchen. Beverage items are waiting for Bar Manager approval.`
-      : `New order sent to the kitchen for ${table?.name || tableId}.`);
+    const messages = [];
+    if (hasFood && hasBeverages) {
+      messages.push('Food sent to the kitchen; beverages, including juice, sent to the Bar Manager.');
+    } else if (hasBeverages) {
+      messages.push('Beverages, including juice, sent to the Bar Manager.');
+    } else if (hasFood) {
+      messages.push(`Food order sent to the kitchen for ${table?.name || tableId}.`);
+    }
+    setToast(messages.join(' '));
   };
 
   const advance = (order) => {
@@ -168,8 +175,26 @@ export default function Orders() {
   };
 
   const markPaid = (order) => {
-    setOrderPayment(order.id, 'paid', user.name);
+    const result = setOrderPayment(order.id, 'paid', user.name);
+    if (!result.success) {
+      setToast(result.error);
+      return;
+    }
     setToast(`Payment recorded for ${order.id}.`);
+  };
+
+  const printReceipt = (order) => {
+    const currentOrder = orders.find((entry) => entry.id === order.id);
+    if (!currentOrder) {
+      setToast('This order is no longer available.');
+      return;
+    }
+    if (!canPrintOrderReceipt(currentOrder)) {
+      setToast('You can only print receipts for orders you created.');
+      return;
+    }
+    setPrintedAt(new Date());
+    setPrintReceiptOrder(currentOrder);
   };
 
   return (
@@ -265,13 +290,13 @@ export default function Orders() {
                           >
                             <Eye size={16} />
                           </button>
-                          {canPrintReceipt && (
+                          {canPrintOrderReceipt(order) && (
                             <button
                               type="button"
                               className="icon-btn"
-                              title="Print customer receipt"
+                              title={order.payment === 'paid' ? 'Reprint paid receipt' : 'Print customer receipt'}
                               aria-label={`Print receipt for ${order.id}`}
-                              onClick={() => setPrintReceiptOrder(order)}
+                              onClick={() => printReceipt(order)}
                             >
                               <Printer size={16} />
                             </button>
@@ -311,7 +336,7 @@ export default function Orders() {
         open={newOpen}
         onClose={() => setNewOpen(false)}
         title="Create new order"
-        subtitle="Select a table, add menu items and send to the kitchen."
+        subtitle="Select a table, add menu items and send each item to its preparation area."
         size="xl"
       >
         <form onSubmit={submitOrder} className="order-form">
@@ -450,34 +475,34 @@ export default function Orders() {
             </div>
 
             <button type="submit" className="btn btn-primary btn-block">
-              <Send size={16} /> Send order to kitchen
+              <Send size={16} /> Send order
             </button>
           </div>
         </form>
       </Modal>
 
       <Modal
-        open={Boolean(detail)}
+        open={Boolean(currentDetail)}
         onClose={() => setDetail(null)}
-        title={detail ? `Order ${detail.id}` : 'Order'}
-        subtitle={detail ? `${detail.tableName} · ${detail.waiter}` : ''}
+        title={currentDetail ? `Order ${currentDetail.id}` : 'Order'}
+        subtitle={currentDetail ? `${currentDetail.tableName} · ${currentDetail.waiter}` : ''}
       >
-        {detail && (
+        {currentDetail && (
           <div className="detail">
             <div className="detail-row">
               <span>Status</span>
-              <StatusBadge status={detail.status} />
+              <StatusBadge status={currentDetail.status} />
             </div>
             <div className="detail-row">
               <span>Payment</span>
-              <StatusBadge status={detail.payment} />
+              <StatusBadge status={currentDetail.payment} />
             </div>
             <div className="detail-row">
               <span>Placed at</span>
-              <strong>{formatTime(detail.createdAt)}</strong>
+              <strong>{formatTime(currentDetail.createdAt)}</strong>
             </div>
             <ul className="cart-list">
-              {detail.items.map((item) => (
+              {currentDetail.items.map((item) => (
                 <li key={item.id}>
                   <div>
                     <strong>{item.name}</strong>
@@ -487,23 +512,24 @@ export default function Orders() {
                 </li>
               ))}
             </ul>
-            {detail.note && (
+            {currentDetail.note && (
               <div className="detail-note">
                 <strong>Note</strong>
-                <p>{detail.note}</p>
+                <p>{currentDetail.note}</p>
               </div>
             )}
             <div className="cart-total">
               <span>Total</span>
-              <strong>{formatCurrency(detail.total)}</strong>
+              <strong>{formatCurrency(currentDetail.total)}</strong>
             </div>
-            {canPrintReceipt && (
+            {canPrintOrderReceipt(currentDetail) && (
               <button
                 type="button"
                 className="btn btn-primary btn-block"
-                onClick={() => setPrintReceiptOrder(detail)}
+                onClick={() => printReceipt(currentDetail)}
               >
-                <Printer size={16} /> Print customer receipt
+                <Printer size={16} />
+                {currentDetail.payment === 'paid' ? 'Reprint paid receipt' : 'Print customer receipt'}
               </button>
             )}
           </div>
@@ -520,7 +546,9 @@ export default function Orders() {
             <div><span>Order</span><strong>{printReceiptOrder.id}</strong></div>
             <div><span>Table</span><strong>{printReceiptOrder.tableName}</strong></div>
             <div><span>Waiter</span><strong>{printReceiptOrder.waiter}</strong></div>
-            <div><span>Date</span><strong>{new Date(printReceiptOrder.createdAt).toLocaleString()}</strong></div>
+            <div><span>Order date</span><strong>{new Date(printReceiptOrder.createdAt).toLocaleDateString()}</strong></div>
+            <div><span>Order time</span><strong>{new Date(printReceiptOrder.createdAt).toLocaleTimeString()}</strong></div>
+            {printedAt && <div><span>Printed at</span><strong>{printedAt.toLocaleString()}</strong></div>}
             <div><span>Payment status</span><strong>{String(printReceiptOrder.payment).toUpperCase()}</strong></div>
           </div>
           <div className="receipt-items">
@@ -532,16 +560,22 @@ export default function Orders() {
             ))}
           </div>
           <div className="receipt-total">
-            <span>Total due</span>
-            <strong>{formatCurrency(printReceiptOrder.total)}</strong>
+          <span>{printReceiptOrder.payment === 'paid' ? 'Total paid' : 'Total due'}</span>
+          <strong>{formatCurrency(printReceiptOrder.total)}</strong>
           </div>
-          <div className="receipt-payment">
-            <strong>Payment options</strong>
-            <div><span>MoMo</span><b>{RECEIPT_PAYMENT_DETAILS.mobileMoneyNumber}</b></div>
-            <div><span>MoMo Code</span><b>{RECEIPT_PAYMENT_DETAILS.mobileMoneyCode}</b></div>
-            <div><span>Equity Bank</span><b>{RECEIPT_PAYMENT_DETAILS.equityBankAccount}</b></div>
-          </div>
-          <footer>Thank you for dining with us.</footer>
+          {printReceiptOrder.payment !== 'paid' && (
+            <div className="receipt-payment">
+              <strong>Payment options</strong>
+              <div><span>MoMo</span><b>{RECEIPT_PAYMENT_DETAILS.mobileMoneyNumber}</b></div>
+              <div><span>MoMo Code</span><b>{RECEIPT_PAYMENT_DETAILS.mobileMoneyCode}</b></div>
+              <div><span>Equity Bank</span><b>{RECEIPT_PAYMENT_DETAILS.equityBankAccount}</b></div>
+            </div>
+          )}
+          <footer>
+            {printReceiptOrder.payment === 'paid'
+              ? 'Thank you for dining with us. We look forward to welcoming you again!'
+              : 'Thank you for dining with us.'}
+          </footer>
         </article>
       )}
     </>

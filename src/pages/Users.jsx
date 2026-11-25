@@ -23,6 +23,7 @@ const ROLE_TONES = {
   bar_manager: 'violet',
   chef: 'primary',
   housekeeping: 'muted',
+  receptionist: 'info',
 };
 
 const EMPTY_FORM = {

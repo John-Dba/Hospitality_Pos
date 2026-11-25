@@ -49,7 +49,10 @@ export default function Kitchen() {
   const [requestError, setRequestError] = useState('');
   const [toast, setToast] = useState('');
 
-  const completedToday = orders.filter((order) => order.status === 'completed').length;
+  const kitchenOrders = orders.filter((order) =>
+    order.items.some((item) => item.category === 'Food'),
+  );
+  const completedToday = kitchenOrders.filter((order) => order.status === 'completed').length;
   const openRequests = stockRequests.filter((request) =>
     ['pending', 'awaiting_approval', 'approved'].includes(request.status),
   ).length;
@@ -74,7 +77,7 @@ export default function Kitchen() {
     <>
       <PageHeader
         title="Kitchen board"
-        subtitle="Live order tickets from the dining room to the pass."
+        subtitle="Food items from waiter orders are sent here for preparation."
         actions={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setRequestOpen(true)}>
@@ -90,7 +93,7 @@ export default function Kitchen() {
 
       <div className="kitchen-summary">
         {COLUMNS.map((column) => {
-          const count = orders.filter((order) => order.status === column.key).length;
+          const count = kitchenOrders.filter((order) => order.status === column.key).length;
           return (
             <div className="mini-stat" key={column.key}>
               <span className={`stat-icon tone-${column.tone}`}>
@@ -116,7 +119,7 @@ export default function Kitchen() {
 
       <div className="kanban">
         {COLUMNS.map((column) => {
-          const tickets = orders.filter((order) => order.status === column.key);
+          const tickets = kitchenOrders.filter((order) => order.status === column.key);
           return (
             <section className="kanban-col" key={column.key}>
               <header className="kanban-head">
@@ -146,7 +149,7 @@ export default function Kitchen() {
                       </div>
 
                       <ul className="ticket-items">
-                        {order.items.map((item) => (
+                        {order.items.filter((item) => item.category === 'Food').map((item) => (
                           <li key={item.id}>
                             <span className="ticket-qty">{item.qty}×</span>
                             {item.name}

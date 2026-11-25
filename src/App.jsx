@@ -10,6 +10,8 @@ import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import Orders from './pages/Orders';
 import Reports from './pages/Reports';
+import RoomBookings from './pages/RoomBookings';
+import Services from './pages/Services';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
 
@@ -27,6 +29,22 @@ export default function App() {
               element={
                 <RequireRole roles={['admin', 'manager', 'waiter', 'accountant']}>
                   <Orders />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="room-bookings"
+              element={
+                <RequireRole roles={['admin', 'manager', 'accountant', 'receptionist']}>
+                  <RoomBookings />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="services"
+              element={
+                <RequireRole roles={['admin', 'manager']}>
+                  <Services />
                 </RequireRole>
               }
             />

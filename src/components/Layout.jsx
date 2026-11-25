@@ -18,6 +18,9 @@ import { APP_NAME, HOTEL_NAME, NAV_ITEMS, ROLE_LABELS } from '../data/constants'
 import { canAccessInventoryCategory } from '../utils/inventoryAccess';
 import { Avatar } from './ui';
 
+const STOCK_ALERT_ROLES = ['admin', 'manager', 'accountant', 'food_storekeeper', 'beverage_storekeeper'];
+const STOCK_OVERSIGHT_ROLES = ['admin', 'manager', 'accountant'];
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -41,9 +44,13 @@ export default function Layout() {
   const pageTitle = current?.label || 'Dashboard';
 
   const alerts = useMemo(() => {
-    const lowStock = inventory.filter(
-      (item) => item.qty <= item.threshold && canAccessInventoryCategory(user.role, item.category),
-    );
+    const lowStock = STOCK_ALERT_ROLES.includes(user.role)
+      ? inventory.filter((item) =>
+          item.qty <= item.threshold &&
+          (STOCK_OVERSIGHT_ROLES.includes(user.role) ||
+            canAccessInventoryCategory(user.role, item.category)),
+        )
+      : [];
     const pending = orders.filter((order) => order.status === 'pending');
     const dirty = rooms.filter((room) => room.status === 'dirty');
     return [
@@ -53,12 +60,12 @@ export default function Layout() {
         to: '/kitchen',
         show: pending.length > 0,
       },
-      {
-        id: 'stock',
-        label: `${lowStock.length} inventory item${lowStock.length === 1 ? '' : 's'} at or below reorder level`,
+      ...lowStock.map((item) => ({
+        id: `stock-${item.id}`,
+        label: `Low stock: ${item.name} - ${item.qty} ${item.unit} left (reorder at ${item.threshold} ${item.unit})`,
         to: '/inventory',
-        show: lowStock.length > 0,
-      },
+        show: true,
+      })),
       {
         id: 'rooms',
         label: `${dirty.length} room${dirty.length === 1 ? '' : 's'} need housekeeping attention`,
@@ -184,7 +191,7 @@ export default function Layout() {
                 <div className="notif-panel">
                   <div className="notif-head">
                     <strong>Notifications</strong>
-                    <span>{alerts.length} new</span>
+                    <span>{alerts.length} active</span>
                   </div>
                   {alerts.length === 0 ? (
                     <p className="notif-empty">You are all caught up.</p>

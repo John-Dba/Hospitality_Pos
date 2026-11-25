@@ -6,7 +6,9 @@ An educational point-of-sale workspace for learning common restaurant and hotel 
 
 - Enter table orders and follow them through kitchen preparation.
 - Route drink items to a Bar Manager for approval; beverage stock is deducted only after approval.
+- Let managers and administrators add food and drinks to the waiter menu and add rooms to housekeeping.
 - Add and restock products in the appropriate food or beverage categories; accountants review kitchen supply requests before the matching storekeeper issues stock.
+- Show low-stock alerts to the accountant and the storekeeper responsible for that inventory category.
 - Track inventory movements, housekeeping room status, payments, reports, staff roles and team activity.
 
 ## Run locally

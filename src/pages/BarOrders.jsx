@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, Package, PackageX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/DataContext';
-import { MENU_ITEMS } from '../data/constants';
 import { formatTime } from '../utils/format';
 import { EmptyState, PageHeader, StatusBadge } from '../components/ui';
 
@@ -10,8 +9,8 @@ function getOrderBeverages(order) {
   return order.items.filter((item) => item.category === 'Drinks');
 }
 
-function getStockLine(item, inventory) {
-  const menuItem = MENU_ITEMS.find((entry) => entry.id === item.id);
+function getStockLine(item, inventory, menuItems) {
+  const menuItem = menuItems.find((entry) => entry.id === item.id);
   return inventory.find((entry) =>
     entry.id === menuItem?.inventoryItemId && entry.category === 'Beverages',
   );
@@ -19,7 +18,7 @@ function getStockLine(item, inventory) {
 
 export default function BarOrders() {
   const { user } = useAuth();
-  const { orders, inventory, approveBeverageOrder } = useAppData();
+  const { orders, inventory, menuItems, approveBeverageOrder, advanceOrder } = useAppData();
   const [toast, setToast] = useState('');
 
   const beverageOrders = useMemo(
@@ -36,6 +35,11 @@ export default function BarOrders() {
       return;
     }
     setToast(`Beverage items for ${order.id} approved. Waiting for the storekeeper to issue stock.`);
+  };
+
+  const completeOrder = (order) => {
+    advanceOrder(order.id, 'completed', user.name);
+    setToast(`${order.id} marked as completed.`);
   };
 
   return (
@@ -92,7 +96,7 @@ export default function BarOrders() {
             {waitingOrders.map((order) => {
               const beverages = getOrderBeverages(order);
               const unavailable = beverages
-                .map((item) => ({ item, stock: getStockLine(item, inventory) }))
+                .map((item) => ({ item, stock: getStockLine(item, inventory, menuItems) }))
                 .find(({ item, stock }) => !stock || stock.qty < item.qty);
               const unavailableReason = !unavailable
                 ? ''
@@ -111,7 +115,7 @@ export default function BarOrders() {
                   </div>
                   <div className="bar-order-items">
                     {beverages.map((item) => {
-                      const stock = getStockLine(item, inventory);
+                      const stock = getStockLine(item, inventory, menuItems);
                       return (
                         <div className="bar-order-item" key={item.id}>
                           <span><strong>{item.qty} × {item.name}</strong></span>
@@ -161,7 +165,7 @@ export default function BarOrders() {
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>Order</th><th>Table</th><th>Beverages</th><th>Waiter</th><th>Approved by</th><th>Approved at</th></tr>
+                <tr><th>Order</th><th>Table</th><th>Beverages</th><th>Waiter</th><th>Approved by</th><th>Approved at</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {approvedOrders.slice(0, 10).map((order) => (
@@ -172,6 +176,19 @@ export default function BarOrders() {
                     <td>{order.waiter}</td>
                     <td>{order.beverageApprovedBy || 'Previously completed'}</td>
                     <td className="muted">{order.beverageApprovedAt ? formatTime(order.beverageApprovedAt) : '—'}</td>
+                    <td>
+                      {order.status === 'completed' ? (
+                        <StatusBadge status={order.status} />
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={() => completeOrder(order)}
+                        >
+                          Complete order
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

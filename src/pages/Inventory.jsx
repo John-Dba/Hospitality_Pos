@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/DataContext';
-import { MENU_ITEMS } from '../data/constants';
 import { formatNumber } from '../utils/format';
 import {
   canAccessInventoryCategory,
@@ -41,6 +40,7 @@ export default function Inventory() {
     inventoryMovements = [],
     stockRequests = [],
     orders = [],
+    menuItems,
     addInventoryItem,
     restockItem,
     issueItem,
@@ -196,7 +196,7 @@ export default function Inventory() {
     : [];
 
   const getBeverageStockLine = (orderItem) => {
-    const menuItem = MENU_ITEMS.find((item) => item.id === orderItem.id);
+    const menuItem = menuItems.find((item) => item.id === orderItem.id);
     return inventory.find(
       (item) => item.id === menuItem?.inventoryItemId && item.category === 'Beverages',
     );
